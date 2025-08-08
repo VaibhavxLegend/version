@@ -11,7 +11,7 @@ from ..models.manual_schemas import (
     create_hackathon_response,
     ValidationError
 )
-from ..services.simple_pdf_processing import SimplePDFProcessor
+from ..services.pdf_processing import SimplePDFProcessor
 from ..services.llm import GeminiLLM
 import requests
 
@@ -83,6 +83,12 @@ async def run_submission(
             else:
                 # Fallback to indicating document processing issues
                 answer = "Unable to process the document content to answer this question."
+            
+            # Final sanitization: ensure no newlines in answer
+            answer = answer.replace("\\n", " ").replace("\\r", " ").replace("\n", " ").replace("\r", " ").replace("\t", " ")
+            answer = re.sub(r"[\r\n\t\f\v\x0b\x0c]+", " ", answer)
+            answer = re.sub(r"[\x00-\x1f\x7f-\x9f]", " ", answer)
+            answer = " ".join(answer.split())
             
             answers.append(answer)
         

@@ -1,4 +1,3 @@
-# app/db/pinecone.py
 
 import pinecone
 from ..config.settings import settings

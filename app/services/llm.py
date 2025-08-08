@@ -1,9 +1,9 @@
 # app/services/llm.py
 from typing import List, Dict
 import re
+import os
 
 from ..utils.logging import get_logger
-from ..config.settings import settings
 
 logger = get_logger(__name__)
 
@@ -34,10 +34,8 @@ class GeminiLLM:
     """LLM facade that returns single-line, plain-text answers (no markdown)."""
 
     def __init__(self) -> None:
-        try:
-            self.api_key = settings.gemini_api_key.get_secret_value()
-        except Exception:
-            self.api_key = None
+        # Read directly from environment to avoid pydantic dependency
+        self.api_key = os.getenv("GEMINI_API_KEY")
 
     async def generate_single_line_answer(
         self,

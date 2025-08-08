@@ -12,6 +12,7 @@ from ..models.manual_schemas import (
     ValidationError
 )
 from ..services.simple_pdf_processing import SimplePDFProcessor
+from ..services.llm import GeminiLLM
 import requests
 
 # Expected bearer token for the hackathon
@@ -19,6 +20,7 @@ HACKATHON_TOKEN = "cfe5d188df2d481cbc3d03128a7a93889df967f6c24be452005b2437b7f7b
 
 router = APIRouter(prefix="/hackrx", tags=["HackRX"])
 pdf_processor = SimplePDFProcessor()
+llm_service = GeminiLLM()
 
 def verify_token(authorization: Optional[str] = Header(None)):
     """Verify the bearer token"""
@@ -33,62 +35,6 @@ def verify_token(authorization: Optional[str] = Header(None)):
         raise HTTPException(status_code=401, detail="Invalid token")
     
     return token
-
-def extract_relevant_info(text: str, question: str) -> str:
-    """Extract relevant information from text based on the question."""
-    text_lower = text.lower()
-    question_lower = question.lower()
-    
-    # Define search patterns for different types of questions
-    patterns = {
-        "grace period": [r"grace period[^.]*\.?[^.]*\.", r"premium.*due.*date[^.]*\."],
-        "waiting period": [r"waiting period[^.]*\.?[^.]*\.", r"continuous coverage[^.]*\."],
-        "maternity": [r"maternity[^.]*\.?[^.]*\.", r"childbirth[^.]*\."],
-        "cataract": [r"cataract[^.]*\.?[^.]*\.", r"eye.*surgery[^.]*\."],
-        "organ donor": [r"organ donor[^.]*\.?[^.]*\.", r"harvesting[^.]*\."],
-        "no claim": [r"no claim[^.]*\.?[^.]*\.", r"discount.*renewal[^.]*\."],
-        "health check": [r"health check[^.]*\.?[^.]*\.", r"medical.*examination[^.]*\."],
-        "hospital": [r"hospital.*defined[^.]*\.?[^.]*\.", r"institution.*beds[^.]*\."],
-        "ayush": [r"ayurveda[^.]*\.?[^.]*\.", r"yoga.*naturopathy[^.]*\."],
-        "room rent": [r"room rent[^.]*\.?[^.]*\.", r"daily.*charges[^.]*\."]
-    }
-    
-    # Find the most relevant pattern
-    for key_term, pattern_list in patterns.items():
-        if key_term in question_lower:
-            for pattern in pattern_list:
-                matches = re.findall(pattern, text_lower, re.IGNORECASE)
-                if matches:
-                    # Return the first relevant match, cleaned up
-                    match = matches[0].strip()
-                    # Capitalize first letter and ensure proper sentence structure
-                    if match:
-                        match = match[0].upper() + match[1:] if len(match) > 1 else match.upper()
-                        if not match.endswith('.'):
-                            match += '.'
-                        return match
-    
-    # If no specific pattern found, search for sentences containing question keywords
-    question_words = [word for word in question_lower.split() if len(word) > 3]
-    
-    sentences = text.split('.')
-    best_sentences = []
-    
-    for sentence in sentences[:50]:  # Limit search to first 50 sentences
-        sentence_lower = sentence.lower()
-        score = sum(1 for word in question_words if word in sentence_lower)
-        if score > 0:
-            best_sentences.append((score, sentence.strip()))
-    
-    if best_sentences:
-        # Sort by relevance score and return the best match
-        best_sentences.sort(key=lambda x: x[0], reverse=True)
-        best_sentence = best_sentences[0][1]
-        if best_sentence and not best_sentence.endswith('.'):
-            best_sentence += '.'
-        return best_sentence
-    
-    return "This information is not found in the provided document."
 
 @router.post("/run")
 async def run_submission(
@@ -132,15 +78,11 @@ async def run_submission(
         
         for question in validated_data["questions"]:
             if extracted_text and "Unable to extract" not in extracted_text and "Error:" not in extracted_text:
-                # Try to find relevant information from the actual document
-                answer = extract_relevant_info(extracted_text, question)
+                # Use LLM service to generate single-line answer
+                answer = await llm_service.generate_single_line_answer(question, [extracted_text])
             else:
                 # Fallback to indicating document processing issues
                 answer = "Unable to process the document content to answer this question."
-            
-            # If no relevant info found, provide a generic response
-            if not answer or answer == "This information is not found in the provided document.":
-                answer = f"Based on the document analysis, specific information about '{question}' was not clearly identified in the provided document."
             
             answers.append(answer)
         

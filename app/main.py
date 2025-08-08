@@ -3,8 +3,12 @@ import uvicorn
 import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .api import endpoints
-from .config.settings import settings
+
+# Import the deployment-ready API router (no pydantic)
+try:
+    from .api.endpoints_no_pydantic import router
+except ImportError:
+    from .api.endpoints import router
 
 def create_app() -> FastAPI:
     app = FastAPI(
@@ -30,7 +34,7 @@ def create_app() -> FastAPI:
         return {"status": "healthy", "service": "hackrx-llm-query-system"}
 
     # Include API router
-    app.include_router(endpoints.router)
+    app.include_router(router)
 
     return app
 
@@ -39,8 +43,9 @@ app = create_app()
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))
     uvicorn.run(
-        "app.main:app",
+    app,
         host="0.0.0.0",
         port=port,
-        reload=True
+    # Disable reload here to avoid duplicate imports when running as module
+    reload=False
     )

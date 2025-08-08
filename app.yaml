@@ -1,0 +1,35 @@
+runtime: python310
+
+env: flex
+
+automatic_scaling:
+  min_num_instances: 1
+  max_num_instances: 10
+
+resources:
+  cpu: 1
+  memory_gb: 2
+  disk_size_gb: 10
+
+env_variables:
+  PYTHONPATH: /app
+  LOG_LEVEL: INFO
+  LOG_DIR: ./logs
+  APP_ENV: production
+
+# Environment variables for secrets (these should be set in GCP Secret Manager)
+# POSTGRES_USER: from Secret Manager
+# POSTGRES_PASSWORD: from Secret Manager  
+# POSTGRES_HOST: from Secret Manager
+# POSTGRES_PORT: from Secret Manager
+# POSTGRES_DB: from Secret Manager
+# PINECONE_API_KEY: from Secret Manager
+# PINECONE_ENVIRONMENT: from Secret Manager
+# PINECONE_INDEX: from Secret Manager
+# GOOGLE_API_KEY: from Secret Manager
+# OLLAMA_BASE_URL: from Secret Manager
+# OLLAMA_API_KEY: from Secret Manager
+
+network:
+  forwarded_ports:
+  - 8000

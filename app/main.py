@@ -11,6 +11,13 @@ except ImportError:
     from .api.endpoints import router
 
 def create_app() -> FastAPI:
+    """Create and configure the FastAPI application.
+
+    - Sets metadata for interactive docs
+    - Enables permissive CORS for hackathon usage
+    - Mounts the HackRX API router
+    - Exposes /health for uptime checks
+    """
     app = FastAPI(
         title="HackRX LLM Query System",
         version="1.0.0",
@@ -31,6 +38,7 @@ def create_app() -> FastAPI:
     # Health check endpoint
     @app.get("/health")
     async def health_check():
+        """Simple liveness probe to verify the service is up."""
         return {"status": "healthy", "service": "hackrx-llm-query-system"}
 
     # Include API router

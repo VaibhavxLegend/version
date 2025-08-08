@@ -35,7 +35,7 @@ A robust, production-ready FastAPI application for document-based question answe
     "documents": "<PDF_URL>",
     "questions": ["What is the grace period?", "What is the waiting period?"]
   }
-  ```bash
+  ```
 
 - **Response:**
 
@@ -46,7 +46,7 @@ A robust, production-ready FastAPI application for document-based question answe
       "The waiting period is 90 days."
     ]
   }
-  ```bash
+  ```
 
 ### GET `/health`
 
@@ -65,7 +65,8 @@ A robust, production-ready FastAPI application for document-based question answe
 
   - Uses `Procfile` for Render/Heroku/Cloud Run:
 
-    ```web: python -m gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT
+    ```bash
+    python -m gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT
     ```
 
   - Dockerfile provided for containerized deployment.
@@ -98,16 +99,20 @@ README.md                # Project documentation
 3. Each question is answered in parallel using the LLM service, with strict output sanitization.
 4. Answers are returned as a JSON array.
 
-## Cleaning Up & Customization
+## Customization
 
-- All unused files, test scripts, and placeholder modules have been removed for a clean showcase.
 - To add your own LLM or embedding service, extend `app/services/llm.py` and `app/services/embedding.py`.
 - For advanced use (vector DB, auth, etc.), see commented stubs in `services/` and `security/`.
 
-## License
+## Future Scope
 
-MIT
-
----
-
-**Showcase Ready:** This repo is now clean, production-ready, and easy to deploy or extend. Fork, star, and use as a template for your own document QA projects!
+- **Enhanced LLM Integration:** Support for multiple LLM providers with dynamic selection based on user preferences or performance metrics.
+- **Vector Database Integration:** Add support for vector databases like Pinecone or Weaviate for advanced document search and retrieval.
+- **Authentication Enhancements:** Implement OAuth2 or JWT-based authentication for improved security.
+- **Real-Time Collaboration:** Enable multiple users to interact with the system simultaneously with session management.
+- **Multi-Language Support:** Extend the system to support document processing and question answering in multiple languages.
+- **Improved PDF Parsing:** Incorporate advanced PDF parsing libraries for better handling of complex document layouts.
+- **UI/UX Development:** Build a user-friendly web interface for easier interaction with the system.
+- **Cloud-Native Features:** Add support for serverless deployments and auto-scaling on platforms like Azure Functions or AWS Lambda.
+- **Analytics Dashboard:** Provide insights into system usage, performance, and user behavior through an integrated dashboard.
+- **Offline Mode:** Enable offline processing of documents and questions for environments with limited internet connectivity.

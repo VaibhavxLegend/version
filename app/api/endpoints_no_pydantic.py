@@ -25,7 +25,11 @@ pdf_processor = SimplePDFProcessor()
 llm_service = GeminiLLM()
 
 def verify_token(authorization: Optional[str] = Header(None)):
-    """Verify the bearer token"""
+    """Verify `Authorization: Bearer <token>` header and enforce HACKATHON_TOKEN.
+
+    Raises 401 for missing/invalid tokens.
+    Returns the validated token string on success.
+    """
     if not authorization:
         raise HTTPException(status_code=401, detail="Authorization header required")
     
@@ -43,8 +47,13 @@ async def run_submission(
     request: Request,
     authorization: Optional[str] = Header(None, description="Bearer token for authentication")
 ):
-    """
-    Process document from URL and answer queries for HackRX competition.
+    """Process the PDF at `documents` URL and answer the provided questions.
+
+    Steps:
+    - Validate auth and request body (manual schema)
+    - Download and extract PDF text
+    - Answer up to 10 questions in parallel with strict timeouts
+    - Sanitize answers to single-line plain text
     """
     # Verify authentication
     verify_token(authorization)
@@ -80,6 +89,7 @@ async def run_submission(
         limited_text = extracted_text[:3000]  # Max 3000 chars
 
         def sync_llm_answer(question):
+            """Run the async LLM answerer in a thread with timeout and sanitization."""
             try:
                 if extracted_text and "Unable to extract" not in extracted_text and "Error:" not in extracted_text:
                     loop = asyncio.new_event_loop()

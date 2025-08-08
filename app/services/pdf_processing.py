@@ -10,12 +10,16 @@ logger = get_logger(__name__)
 
 class PDFProcessor:
     def __init__(self):
-        # Initialize any external converters/tools if needed
+    # Initialize any external converters/tools if needed
         pass
 
     async def base64_to_markdown(self, pdf_blob_base64: str) -> Optional[str]:
-        """
-        Convert base64 PDF blob to Markdown string using PyPDF2.
+        """Convert a base64-encoded PDF to markdown text.
+
+        Decodes PDF bytes, extracts text via PyPDF2, then converts the
+        raw text into simple markdown for downstream processing.
+
+        Returns a markdown string or None on error (logged).
         """
         try:
             pdf_bytes = base64.b64decode(pdf_blob_base64)
@@ -27,8 +31,10 @@ class PDFProcessor:
             return None
 
     def _extract_text_from_pdf(self, pdf_bytes: bytes) -> str:
-        """
-        Extract text from PDF bytes using PyPDF2.
+        """Extract text from PDF bytes using PyPDF2.
+
+        Iterates pages and concatenates extracted text; returns a fallback
+        message if nothing could be extracted.
         """
         try:
             pdf_file = io.BytesIO(pdf_bytes)
@@ -45,7 +51,8 @@ class PDFProcessor:
             return "Simulated PDF text extracted from document.\nSection 1. Introduction\n• Bullet 1\n• Bullet 2"
 
     def _simulate_pdf_text_extraction(self, pdf_bytes: bytes) -> str:
-        """
-        Fallback function for PDF text extraction.
+        """Fallback extractor that delegates to the primary method.
+
+        Exists to allow mocking or alternative strategies if needed.
         """
         return self._extract_text_from_pdf(pdf_bytes)

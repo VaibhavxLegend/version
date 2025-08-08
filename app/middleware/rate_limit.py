@@ -10,6 +10,13 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     """Rate limiting middleware using sliding window algorithm."""
     
     def __init__(self, app, calls: int = 100, window: int = 60):
+        """Initialize rate limiter.
+
+        Args:
+            app: ASGI app.
+            calls: Allowed requests per window per client IP.
+            window: Window size in seconds.
+        """
         super().__init__(app)
         self.calls = calls  # Number of calls allowed
         self.window = window  # Time window in seconds
@@ -17,6 +24,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.lock = asyncio.Lock()
     
     async def dispatch(self, request: Request, call_next):
+        """Enforce per-IP rate limits and add X-RateLimit headers.
+
+        Uses a sliding window stored in-memory keyed by client IP.
+        Skips health and docs endpoints.
+        """
         client_ip = self._get_client_ip(request)
         
         # Skip rate limiting for health checks

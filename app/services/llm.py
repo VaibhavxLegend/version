@@ -40,7 +40,7 @@ class GeminiLLM:
         """
         Combine question and context chunks to create a token-efficient prompt.
         """
-        prompt = "You are an intelligent assistant. Use the context below to answer the question.\n\n"
+        prompt = "You are an intelligent assistant. Use the context below to answer the question in a single line.\n\n"
         for i, chunk in enumerate(context_chunks):
             prompt += f"[Context {i+1}]: {chunk}\n"
         prompt += f"\nQuestion: {question}\nAnswer briefly and precisely with clause citations."

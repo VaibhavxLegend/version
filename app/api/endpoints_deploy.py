@@ -1,19 +1,17 @@
-# app/api/endpoints.py
-import time
-import uuid
+# app/api/endpoints_deploy.py
 import base64
 import re
 from fastapi import APIRouter, Body, HTTPException, Header
 from typing import List, Dict, Any, Optional
 from ..models.schemas import QueryRequest, HackathonResponse
-from ..services.pdf_processing import PDFProcessor
+from ..services.simple_pdf_processing import SimplePDFProcessor
 import requests
 
 # Expected bearer token for the hackathon
 HACKATHON_TOKEN = "cfe5d188df2d481cbc3d03128a7a93889df967f6c24be452005b2437b7f7b26a"
 
 router = APIRouter(prefix="/hackrx", tags=["HackRX"])
-pdf_processor = PDFProcessor()
+pdf_processor = SimplePDFProcessor()
 
 def verify_token(authorization: Optional[str] = Header(None)):
     """Verify the bearer token"""
@@ -117,7 +115,7 @@ async def run_submission(
         answers = []
         
         for question in query_request.questions:
-            if extracted_text and "Unable to extract" not in extracted_text:
+            if extracted_text and "Unable to extract" not in extracted_text and "Error:" not in extracted_text:
                 # Try to find relevant information from the actual document
                 answer = extract_relevant_info(extracted_text, question)
             else:
@@ -151,37 +149,3 @@ async def hackrx_health_check():
         "service": "hackrx-submission",
         "endpoint": "/hackrx/run"
     }
-
-@router.post("/debug", tags=["Debug"])
-async def debug_pdf_processing(
-    query_request: QueryRequest = Body(...),
-    authorization: Optional[str] = Header(None, description="Bearer token for authentication")
-):
-    """Debug endpoint to see extracted PDF content."""
-    # Verify authentication
-    verify_token(authorization)
-    
-    try:
-        # Download the PDF from the provided URL
-        response = requests.get(query_request.documents, timeout=30)
-        response.raise_for_status()
-        
-        # Process the PDF content
-        pdf_content = response.content
-        pdf_base64 = base64.b64encode(pdf_content).decode('utf-8')
-        
-        # Extract text from PDF
-        extracted_text = await pdf_processor.base64_to_markdown(pdf_base64)
-        
-        return {
-            "pdf_size_bytes": len(pdf_content),
-            "extracted_text_length": len(extracted_text) if extracted_text else 0,
-            "extracted_preview": extracted_text[:500] + "..." if extracted_text and len(extracted_text) > 500 else extracted_text,
-            "questions": query_request.questions
-        }
-        
-    except Exception as e:
-        return {
-            "error": str(e),
-            "pdf_processing_failed": True
-        }

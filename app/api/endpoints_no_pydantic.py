@@ -15,6 +15,7 @@ from ..models.manual_schemas import (
 from ..services.pdf_processing import SimplePDFProcessor
 from ..services.llm import GeminiLLM, force_single_line
 import requests
+import concurrent.futures
 
 # Expected bearer token for the hackathon
 HACKATHON_TOKEN = "cfe5d188df2d481cbc3d03128a7a93889df967f6c24be452005b2437b7f7b26a"
@@ -74,64 +75,54 @@ async def run_submission(
         if not extracted_text or extracted_text.strip() == "":
             extracted_text = "Unable to extract text from the provided PDF document."
         
-        # Process each question against the extracted text (limit to prevent timeout)
-        answers = []
-        
         # Limit number of questions to prevent worker timeout
         limited_questions = validated_data["questions"][:10]  # Max 10 questions
-        
-        for question in limited_questions:
+        limited_text = extracted_text[:3000]  # Max 3000 chars
+
+        def sync_llm_answer(question):
             try:
                 if extracted_text and "Unable to extract" not in extracted_text and "Error:" not in extracted_text:
-                    # Limit extracted text size to prevent timeout
-                    limited_text = extracted_text[:3000]  # Max 3000 chars
-                    
-                    # Add timeout protection to prevent worker timeout
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
                     try:
-                        answer = await asyncio.wait_for(
-                            llm_service.generate_single_line_answer(question, [limited_text]),
-                            timeout=5.0  # 5 second timeout
+                        answer = loop.run_until_complete(
+                            asyncio.wait_for(
+                                llm_service.generate_single_line_answer(question, [limited_text]),
+                                timeout=5.0
+                            )
                         )
                     except asyncio.TimeoutError:
                         answer = "Processing timeout - unable to analyze this question."
+                    finally:
+                        loop.close()
                 else:
                     answer = "Unable to process the document content to answer this question."
-            except Exception as e:
-                # Fallback if LLM processing fails
+            except Exception:
                 answer = "Processing error occurred for this question."
-            
-            # Brutal force single-line cleanup
             answer = force_single_line(answer)
             if len(answer) > 200:
                 answer = answer[:197] + "..."
-            
-            answers.append(answer)
-        
-        # Return response in correct format
-        return create_hackathon_response(answers)
-        
-    except requests.RequestException as e:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Failed to download document: {str(e)}"
-        )
-    except json.JSONDecodeError:
-        raise HTTPException(
-            status_code=422,
-            detail="Invalid JSON in request body"
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Processing failed: {str(e)}"
-        )
+            return answer
 
-@router.get("/health")
-async def hackrx_health_check():
-    """Health check for HackRX submission."""
-    return {
-        "status": "healthy",
-        "service": "hackrx-submission",
-        "endpoint": "/hackrx/run",
-        "version": "no-pydantic"
-    }
+        answers = []
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+            futures = [executor.submit(sync_llm_answer, q) for q in limited_questions]
+            # Collect results in the original order
+            for future in futures:
+                answers.append(future.result())
+
+        # Final sanitization: remove actual and literal "\n" from each answer
+        cleaned_answers = []
+        for a in answers:
+            if not isinstance(a, str):
+                a = str(a)
+            # Replace literal backslash-n and real newlines/carriage returns
+            a = a.replace("\\n", " ").replace("\n", " ").replace("\r", " ")
+            # Collapse excess whitespace
+            a = " ".join(a.split())
+            cleaned_answers.append(a)
+
+        # Return response in correct format
+        return create_hackathon_response(cleaned_answers)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

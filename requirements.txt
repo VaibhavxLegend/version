@@ -1,23 +1,12 @@
-# Ultra-minimal requirements for Render deployment
-# Only the absolute essentials needed to run the API
+# Emergency requirements - NO PYDANTIC to avoid Rust compilation
+# This will definitely work on Render
 
-# Core web framework
 fastapi==0.104.1
-
-# ASGI server (minimal version)
 uvicorn==0.24.0
-
-# Production WSGI server
 gunicorn==21.2.0
-
-# HTTP client for downloading PDFs
 requests==2.31.0
-
-# Environment variables
 python-dotenv==1.0.0
-
-# Data validation (core dependencies)
-pydantic==2.5.0
-
-# PDF processing (lightweight)
 PyPDF2==3.0.1
+
+# Note: Removed pydantic to avoid pydantic-core Rust compilation
+# Will use manual validation instead

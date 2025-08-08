@@ -1,1 +1,1 @@
-web: gunicorn app.main_deploy:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT
+web: gunicorn app.main_emergency:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT

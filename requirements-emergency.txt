@@ -1,0 +1,16 @@
+# Emergency ultra-minimal requirements - NO RUST COMPILATION
+# Only packages with guaranteed pre-built wheels
+
+# Core web framework - has pre-built wheels
+fastapi==0.104.1
+
+# ASGI server - pure Python version only
+uvicorn==0.24.0
+
+# Production server - has pre-built wheels
+gunicorn==21.2.0
+
+# HTTP requests - pure Python
+requests==2.31.0
+
+# That's it! Absolute minimum for basic API functionality

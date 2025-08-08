@@ -1,6 +1,7 @@
 # app/api/endpoints_no_pydantic.py
 # Emergency deployment version without Pydantic to avoid Rust compilation
 
+import asyncio
 import base64
 import re
 import json
@@ -12,7 +13,7 @@ from ..models.manual_schemas import (
     ValidationError
 )
 from ..services.pdf_processing import SimplePDFProcessor
-from ..services.llm import GeminiLLM
+from ..services.llm import GeminiLLM, force_single_line
 import requests
 
 # Expected bearer token for the hackathon
@@ -73,22 +74,36 @@ async def run_submission(
         if not extracted_text or extracted_text.strip() == "":
             extracted_text = "Unable to extract text from the provided PDF document."
         
-        # Process each question against the extracted text
+        # Process each question against the extracted text (limit to prevent timeout)
         answers = []
         
-        for question in validated_data["questions"]:
-            if extracted_text and "Unable to extract" not in extracted_text and "Error:" not in extracted_text:
-                # Use LLM service to generate single-line answer
-                answer = await llm_service.generate_single_line_answer(question, [extracted_text])
-            else:
-                # Fallback to indicating document processing issues
-                answer = "Unable to process the document content to answer this question."
+        # Limit number of questions to prevent worker timeout
+        limited_questions = validated_data["questions"][:10]  # Max 10 questions
+        
+        for question in limited_questions:
+            try:
+                if extracted_text and "Unable to extract" not in extracted_text and "Error:" not in extracted_text:
+                    # Limit extracted text size to prevent timeout
+                    limited_text = extracted_text[:3000]  # Max 3000 chars
+                    
+                    # Add timeout protection to prevent worker timeout
+                    try:
+                        answer = await asyncio.wait_for(
+                            llm_service.generate_single_line_answer(question, [limited_text]),
+                            timeout=5.0  # 5 second timeout
+                        )
+                    except asyncio.TimeoutError:
+                        answer = "Processing timeout - unable to analyze this question."
+                else:
+                    answer = "Unable to process the document content to answer this question."
+            except Exception as e:
+                # Fallback if LLM processing fails
+                answer = "Processing error occurred for this question."
             
-            # Final sanitization: ensure no newlines in answer
-            answer = answer.replace("\\n", " ").replace("\\r", " ").replace("\n", " ").replace("\r", " ").replace("\t", " ")
-            answer = re.sub(r"[\r\n\t\f\v\x0b\x0c]+", " ", answer)
-            answer = re.sub(r"[\x00-\x1f\x7f-\x9f]", " ", answer)
-            answer = " ".join(answer.split())
+            # Brutal force single-line cleanup
+            answer = force_single_line(answer)
+            if len(answer) > 200:
+                answer = answer[:197] + "..."
             
             answers.append(answer)
         
